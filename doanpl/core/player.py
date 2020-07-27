@@ -1,15 +1,58 @@
 import sys
 import time
+import pyperclip as pc
 
 from PyQt5.QtCore import QDir, Qt, QUrl
 from PyQt5.QtMultimedia import QMediaContent, QMediaPlayer
 from PyQt5.QtMultimediaWidgets import QVideoWidget
-from PyQt5.QtWidgets import (QApplication, QFileDialog, QHBoxLayout, QLabel,
+from PyQt5.QtWidgets import (QApplication, QFileDialog, QHBoxLayout, QLabel, QLineEdit,
                              QPushButton, QSlider, QStyle, QVBoxLayout, QWidget,
                              QInputDialog, QProgressDialog,
-                             QMainWindow, QAction)
+                             QMainWindow, QAction, QDialog, QDialogButtonBox,
+                             QButtonGroup, QRadioButton
+                             )
 from PyQt5.QtGui import QIcon
 from .youtube_downloader import YoutubeDownloader
+
+
+class DownloadingDialog(QDialog):
+
+    def __init__(self, *args, **kwargs):
+        super(DownloadingDialog, self).__init__(*args, **kwargs)
+
+        self.setWindowTitle("Insert Youtube Link!")
+        self.dialog_label = QLabel("Link: ")
+        self.link_text_edit = QLineEdit()
+        url = pc.paste()
+        # TODO: add regexp to check youtube url
+        if "youtu" in url:
+            self.link_text_edit.setText(url)
+
+        QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+        self.layout = QVBoxLayout()
+        self.h_layout_url = QHBoxLayout()
+        self.h_layout_url.addWidget(self.dialog_label)
+        self.h_layout_url.addWidget(self.link_text_edit)
+
+        self.letter_group = QButtonGroup(self)
+        self.mp3 = QRadioButton("MP3")
+        self.letter_group.addButton(self.mp3)
+        self.mp4 = QRadioButton("MP4")
+        self.mp4.setChecked(True)
+        self.letter_group.addButton(self.mp4)
+        self.h_layout_format = QHBoxLayout()
+        self.h_layout_format.addWidget(self.mp3)
+        self.h_layout_format.addWidget(self.mp4)
+
+        self.layout.addLayout(self.h_layout_url)
+        self.layout.addLayout(self.h_layout_format)
+        self.layout.addWidget(self.buttonBox)
+        self.setLayout(self.layout)
 
 
 class VideoWindow(QMainWindow):
@@ -91,17 +134,18 @@ class VideoWindow(QMainWindow):
         self.play()
 
     def download(self):
-        url, ok = QInputDialog.getText(self, 'Download',
-                                       'Insert youtube link: ')
-        # TODO: Add url validation
-        if ok:
+        dlg = DownloadingDialog(self)
+        if dlg.exec_():
             downloader = YoutubeDownloader()
             folder_name = QFileDialog.getExistingDirectory(self, 'Select Folder', "file:///" + QDir.currentPath())
             progress = QProgressDialog("Download video", "Cancel", 0, 0, self)
             progress.setMinimumDuration(0)
             progress.setRange(0, 100)
             progress.forceShow()
-            downloader.download(url, folder_name)
+            # TODO: change the simple logic to add more formats
+            file_format = "mp4" if dlg.mp4.isChecked() else "mp3"
+            print(file_format)
+            downloader.download(dlg.link_text_edit.text(), file_format, folder_name)
             progress.close()
 
     def exit_call(self):
